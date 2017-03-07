@@ -9,21 +9,23 @@ function Get-TargetResource
     param
     (
         [Parameter(Mandatory)]
-        [String]$DomainName,
+        [string]$DomainName,
 
         [Parameter(Mandatory)]
-        [PSCredential]$DomainAdministratorCredential,
+        [pscredential]$DomainAdministratorCredential,
 
         [Parameter(Mandatory)]
-        [PSCredential]$SafemodeAdministratorPassword,
+        [pscredential]$SafemodeAdministratorPassword,
 
-        [String]$DatabasePath,
+        [string]$DatabasePath,
 
-        [String]$LogPath,
+        [string]$LogPath,
 
-        [String]$SysvolPath,
+        [string]$SysvolPath,
 
-        [String]$SiteName
+        [string]$SiteName,
+        
+        [string]$InstallationMediaPath
     )
 
     $returnValue = @{
@@ -35,7 +37,7 @@ function Get-TargetResource
     {
         Write-Verbose -Message "Resolving '$($DomainName)' ..."
         $domain = Get-ADDomain -Identity $DomainName -Credential $DomainAdministratorCredential
-        if ($domain -ne $null)
+        if ($domain)
         {
             Write-Verbose -Message "Domain '$($DomainName)' is present. Looking for DCs ..."
             try
@@ -59,14 +61,14 @@ function Get-TargetResource
             catch
             {
                 if ($error[0]) {Write-Verbose $error[0].Exception}
-                Write-Verbose -Message "Current node does not host a domain controller."
+                Write-Verbose -Message 'Current node does not host a domain controller.'
             }
         }
     }
     catch [System.Management.Automation.CommandNotFoundException]
     {
         if ($error[0]) {Write-Verbose $error[0].Exception}
-        Write-Verbose -Message "Current node is not running AD WS, and hence is not a domain controller."
+        Write-Verbose -Message 'Current node is not running AD WS, and hence is not a domain controller.'
     }
     $returnValue
 }
@@ -76,25 +78,27 @@ function Set-TargetResource
     param
     (
         [Parameter(Mandatory)]
-        [String]$DomainName,
+        [string]$DomainName,
 
         [Parameter(Mandatory)]
-        [PSCredential]$DomainAdministratorCredential,
+        [pscredential]$DomainAdministratorCredential,
 
         [Parameter(Mandatory)]
-        [PSCredential]$SafemodeAdministratorPassword,
+        [pscredential]$SafemodeAdministratorPassword,
 
-        [String]$DatabasePath,
+        [string]$DatabasePath,
 
-        [String]$LogPath,
+        [string]$LogPath,
 
-        [String]$SysvolPath,
+        [string]$SysvolPath,
 
-        [String]$SiteName
+        [string]$SiteName,
+        
+        [string]$InstallationMediaPath
     )
 
     # Debug can pause Install-ADDSDomainController, so we remove it.
-    $parameters = $PSBoundParameters.Remove("Debug");
+    $parameters = $PSBoundParameters.Remove('Debug');
     $targetResource = Get-TargetResource @PSBoundParameters
 
     if ($targetResource.Ensure -eq $false)
@@ -120,21 +124,25 @@ function Set-TargetResource
             NoRebootOnCompletion = $true
             Force = $true
         }
-        if ($DatabasePath -ne $null)
+        if ($DatabasePath) 
         {
-            $params.Add("DatabasePath", $DatabasePath)
+            $params.Add('DatabasePath', $DatabasePath)
         }
-        if ($LogPath -ne $null)
+        if ($LogPath)
         {
-            $params.Add("LogPath", $LogPath)
+            $params.Add('LogPath', $LogPath)
         }
-        if ($SysvolPath -ne $null)
+        if ($SysvolPath)
         {
-            $params.Add("SysvolPath", $SysvolPath)
+            $params.Add('SysvolPath', $SysvolPath)
         }
-        if ($SiteName -ne $null -and $SiteName -ne "")
+        if ($SiteName)
         {
-            $params.Add("SiteName", $SiteName)
+            $params.Add('SiteName', $SiteName)
+        }
+        if ($InstallationMediaPath)
+        {
+            $params.Add('InstallationMediaPath', $InstallationMediaPath)
         }
 
         Install-ADDSDomainController @params
@@ -147,7 +155,7 @@ function Set-TargetResource
     elseif ($targetResource.Ensure)
     {
         ## Node is a domain controller. We check if other properties are in desired state
-        if ($PSBoundParameters["SiteName"] -and $targetResource.SiteName -ne $SiteName)
+        if ($PSBoundParameters['SiteName'] -and $targetResource.SiteName -ne $SiteName)
         {
             ## DC is not in correct site. Move it.
             Write-Verbose "Moving Domain Controller from '$($targetResource.SiteName)' to '$SiteName'"
@@ -162,7 +170,7 @@ function Test-TargetResource
     param
     (
         [Parameter(Mandatory)]
-        [String]$DomainName,
+        [string]$DomainName,
 
         [Parameter(Mandatory)]
         [PSCredential]$DomainAdministratorCredential,
@@ -170,13 +178,15 @@ function Test-TargetResource
         [Parameter(Mandatory)]
         [PSCredential]$SafemodeAdministratorPassword,
 
-        [String]$DatabasePath,
+        [string]$DatabasePath,
 
-        [String]$LogPath,
+        [string]$LogPath,
 
-        [String]$SysvolPath,
+        [string]$SysvolPath,
 
-        [String]$SiteName
+        [string]$SiteName,
+        
+        [string]$InstallationMediaPath
     )
 
     if ($PSBoundParameters.SiteName)
@@ -191,12 +201,12 @@ function Test-TargetResource
 
     try
     {
-        $parameters = $PSBoundParameters.Remove("Debug");
+        $parameters = $PSBoundParameters.Remove('Debug');
 
         $existingResource = Get-TargetResource @PSBoundParameters
         $isCompliant = $existingResource.Ensure
 
-        if ([System.String]::IsNullOrEmpty($SiteName))
+        if (-not $SiteName)
         {
             #If SiteName is not specified confgiuration is compliant
         }
